@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"fmt"
+	"net"
+)
 
 type User struct {
 	Name   string
@@ -44,9 +47,27 @@ func (u *User) Offline() {
 	u.server.Boardcast(u, "下线")
 }
 
+func (u *User) SendMsg(msg string) {
+	u.C <- msg
+}
+
 //用户处理消息
 func (u *User) DoMessage(msg string) {
-	u.server.Boardcast(u, msg)
+	if msg == "who" {
+		u.server.mapLock.Lock()
+
+		num := len(u.server.OnlineMap)
+		u.SendMsg(fmt.Sprintf("实际在线:%d人", num))
+		for _, user := range u.server.OnlineMap {
+			onlineMsg := fmt.Sprintf("[%s]%s:在线...", user.Addr, user.Name)
+			u.SendMsg(onlineMsg)
+		}
+
+		u.server.mapLock.Unlock()
+
+	} else {
+		u.server.Boardcast(u, msg)
+	}
 }
 
 //监听当前User的channel方法,一旦有消息，就发送给对应客户端
