@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -39,7 +40,7 @@ func (s *Server) ListenMessage() {
 }
 
 //广播
-func (s *Server) boardcast(user *User, msg string) {
+func (s *Server) Boardcast(user *User, msg string) {
 	sendMsg := fmt.Sprintf("[%s]%s:%s", user.Addr, user.Name, msg)
 
 	s.Message <- sendMsg
@@ -57,7 +58,30 @@ func (s *Server) Handler(conn net.Conn) {
 	s.mapLock.Unlock()
 
 	//广播当前用户上线消息
-	s.boardcast(user, "已上线")
+	s.Boardcast(user, "已上线")
+
+	//读取消息进行广播
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := conn.Read(buf)
+
+			if n == 0 {
+				s.Boardcast(user, "下线")
+				return
+			}
+
+			if err != nil && err != io.EOF {
+				fmt.Printf("读取错误\n")
+				return
+			}
+
+			msg := string(buf[:n-1])
+			s.Boardcast(user, msg)
+		}
+	}()
+
+	select {}
 }
 
 func (s *Server) start() {
@@ -71,6 +95,7 @@ func (s *Server) start() {
 	//关闭
 	defer listen.Close()
 
+	//启动监听Message的goroutine
 	go s.ListenMessage()
 
 	//接收消息
