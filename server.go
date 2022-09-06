@@ -49,25 +49,19 @@ func (s *Server) Handler(conn net.Conn) {
 	//实际业务
 	fmt.Printf("连接建立成功\n")
 
-	user := NewUser(conn)
+	user := NewUser(conn, s)
 
 	//用户上线，将用户加入OnlineMap
+	user.Online()
 
-	s.mapLock.Lock()
-	s.OnlineMap[user.Name] = user
-	s.mapLock.Unlock()
-
-	//广播当前用户上线消息
-	s.Boardcast(user, "已上线")
-
-	//读取消息进行广播
+	//读取客户端消息进行广播
 	go func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := conn.Read(buf)
 
 			if n == 0 {
-				s.Boardcast(user, "下线")
+				user.Offline()
 				return
 			}
 
@@ -75,9 +69,10 @@ func (s *Server) Handler(conn net.Conn) {
 				fmt.Printf("读取错误\n")
 				return
 			}
-
+			// 去除末尾的\n换行符
 			msg := string(buf[:n-1])
-			s.Boardcast(user, msg)
+
+			user.DoMessage(msg)
 		}
 	}()
 
