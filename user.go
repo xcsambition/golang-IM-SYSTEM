@@ -65,6 +65,19 @@ func (u *User) DoMessage(msg string) {
 
 		u.server.mapLock.Unlock()
 
+	} else if len(msg) >= 7 && msg[:7] == "rename|" {
+		newName := msg[7:]
+		if _, ok := u.server.OnlineMap[newName]; ok {
+			u.SendMsg("用户名已经被使用")
+		} else {
+			u.server.mapLock.Lock()
+			delete(u.server.OnlineMap, u.Name)
+			u.server.OnlineMap[newName] = u
+			u.Name = newName
+			u.server.mapLock.Unlock()
+
+			u.SendMsg("您已经更新用户名为:" + newName)
+		}
 	} else {
 		u.server.Boardcast(u, msg)
 	}
